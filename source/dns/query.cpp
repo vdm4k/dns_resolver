@@ -1,5 +1,6 @@
 #include <dns/query.h>
 #include <netdb.h>
+#include <ares.h>
 
 namespace bro::net::dns {
 
@@ -15,15 +16,23 @@ query::query(ev::io_t &&read_ev, ev::io_t &&write_ev, ev::timer_t &&timer, std::
   , _query_done_q(resolv_done) {}
 
 query::~query() {
-  _state = state::e_idle; // we need it because if query not finished gethostbyname_cb will call by library
+  //NOTE: I don't think we need to call _result_cb function here because we will free it in active state only if programm ended
+
+  _state = state::e_idle; // we need it because gethostbyname_cb will call
+                          // by library and we will check state in done function
   free_resources_per_query();
 }
 
 bool query::run(std::string const &host_name, proto::ip::address::version host_addr_ver, result_cbt &&result_cb) {
-  if (host_addr_ver == proto::ip::address::version::e_none) {
-    result_cb({}, "host address version not set");
+  if (!is_idle()) {
+    result_cb({}, host_name, "couldn't reuse query cause query class is running");
     return false;
   }
+  if (host_addr_ver == proto::ip::address::version::e_none) {
+    result_cb({}, host_name, "host address version not set");
+    return false;
+  }
+  free_resources_per_query(); // maybe we reuse this query before free old resources
   _host_name = host_name;
   _host_addr_ver = host_addr_ver;
 
@@ -43,12 +52,13 @@ bool query::run(std::string const &host_name, proto::ip::address::version host_a
   ares_channel chan;
   int ret_val = ares_init_options(&chan, &opts, optmask);
   if (ret_val != ARES_SUCCESS) {
-    result_cb({}, "couldn't init ares");
+    result_cb({}, host_name, "couldn't init ares");
     return false;
   }
 
   _ares_channel = chan;
   _state = state::e_running;
+  _result_cb = std::move(result_cb);
   switch (_host_addr_ver) {
   case proto::ip::address::version::e_v4:
     ares_gethostbyname(_ares_channel, _host_name.c_str(), AF_INET, gethostbyname_cb, this);
@@ -60,17 +70,21 @@ bool query::run(std::string const &host_name, proto::ip::address::version host_a
     break;
   }
 
+  // NOTE: looks strange, but ares can fast detect if something go wrong and call ares_gethostbyname,
+  // hence here we just check if query already failed - do nothing
+  if (is_idle())
+    return false;
+
   _timer->set_callback([this]() {
     ares_process_fd(_ares_channel, ARES_SOCKET_BAD, ARES_SOCKET_BAD);
-    restart_timer();
+    restart_timer(); // restart if many tries
   });
   restart_timer();
-  _result_cb = std::move(result_cb);
   return true;
 }
 
 void query::restart_timer() {
-  if (is_idle())
+  if (is_idle()) // we can call this after all timers expired, hence just check if query is active
     return;
   timeval tvout;
   auto tv = ares_timeout(_ares_channel, nullptr, &tvout);
@@ -106,24 +120,24 @@ void query::gethostbyname_cb(void *arg, int status, int /*timeouts*/, hostent *h
 }
 
 void query::done(int status, hostent *hostent) {
-  // NOTE: we can't call free_resources_per_query here, because of specific how library works ( double free )
+  // NOTE: we can't call free_resources_per_query here, because of specific how library works ( double free will be )
 
-  if (is_idle()) // need to check because library call it in our desctructor
+  if (is_idle()) // need to check because library may call it in our desctructor
     return;
   _state = state::e_idle;
   _timer->stop();
-  _query_done_q.push_back(this);
+  _query_done_q.push_back(this); // may have duplicates, it's ok
 
   if (status != ARES_SUCCESS) {
     if (_result_cb)
-      _result_cb({}, ares_strerror(status));
+      _result_cb({}, _host_name, ares_strerror(status));
     return;
   }
 
   auto address = *hostent->h_addr_list;
   if (!address) {
     if (_result_cb)
-      _result_cb({}, "ares return empty list of addresses from name server");
+      _result_cb({}, _host_name, "ares return empty list of addresses from name server");
     return;
   }
 
@@ -131,13 +145,15 @@ void query::done(int status, hostent *hostent) {
   case AF_INET: {
     struct in_addr sin_addr;
     memcpy(&sin_addr, address, sizeof(sin_addr));
-    _result_cb(sin_addr, nullptr);
+    if (_result_cb) // probably it can't be here
+      _result_cb(sin_addr, _host_name, nullptr);
     break;
   }
   case AF_INET6:
     struct in6_addr sin6_addr;
     memcpy(&sin6_addr, address, sizeof(sin6_addr));
-    _result_cb(sin6_addr, nullptr);
+    if (_result_cb) // probably it can't be here
+      _result_cb(sin6_addr, _host_name, nullptr);
     break;
   default:
     break;
@@ -146,7 +162,6 @@ void query::done(int status, hostent *hostent) {
 
 void query::sock_state_cb(void *data, ares_socket_t socket_fd, int read, int write) {
   auto q = static_cast<query *>(data);
-
   if (read || write) {
     q->start_io(socket_fd, read, write);
   } else {
@@ -155,7 +170,9 @@ void query::sock_state_cb(void *data, ares_socket_t socket_fd, int read, int wri
 }
 
 void query::free_resources_per_query() {
-  _result_cb = nullptr; // do it because query::done will call in ares_destroy and we  call _result_cb
+  if (!is_idle()) // just check, maybe we already reuse this query
+    return;
+  _result_cb = nullptr;
   if (_ares_channel) {
     ares_destroy(_ares_channel);
     _ares_channel = nullptr;

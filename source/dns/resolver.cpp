@@ -7,6 +7,7 @@ resolver::resolver(config const &conf)
   if (_config._free_query_after_use) {
     _free_query = _factory.generate_timer();
     _free_query->start(std::chrono::seconds(1), [&]() {
+      free_resources_per_query();
       _queries.erase(std::remove_if(_queries.begin(), _queries.end(), [](auto const &q) { return q->is_idle(); }),
                      _queries.end());
     });
@@ -22,7 +23,7 @@ bool resolver::resolve(std::string const &host_name, proto::ip::address::version
   }
   if (_config._max_active_queries) {
     if (*_config._max_active_queries > _queries.size()) {
-      result_cb({}, "limit on active queries exceeded");
+      result_cb({}, host_name, "limit on active queries exceeded");
       return false;
     }
   }
@@ -34,10 +35,9 @@ bool resolver::resolve(std::string const &host_name, proto::ip::address::version
                                    _query_done_q);
   if (_config._query_conf)
     q->set_config(*_config._query_conf);
-  if (!q->run(host_name, host_addr_ver, std::move(result_cb)))
-    return false;
+  bool res = q->run(host_name, host_addr_ver, std::move(result_cb));
   _queries.push_back(std::move(q));
-  return true;
+  return res;
 }
 
 void resolver::free_resources_per_query() {

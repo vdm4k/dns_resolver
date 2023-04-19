@@ -1,10 +1,13 @@
 #pragma once
 
-#include <ares.h>
 #include <libev_wrapper/io.h>
 #include <libev_wrapper/timer.h>
 #include <optional>
 #include <protocols/ip/address.h>
+
+struct hostent;
+typedef int ares_socket_t;
+typedef struct ares_channeldata *ares_channel;
 
 namespace bro::net::dns {
 
@@ -18,7 +21,7 @@ namespace bro::net::dns {
  * This function will be called with filled ip::address or error
  * pointer on error is a pointer on static buffer, no need to call free
  */
-using result_cbt = std::function<void(proto::ip::address, char const *const error)>;
+using result_cbt = std::function<void(proto::ip::address, std::string const &hostname, char const *const error)>;
 
 /*!\brief dns query
  */
@@ -68,11 +71,11 @@ public:
 
   ~query();
 
-  /*! \brief resolve hostname to address
+  /*! \brief resolve hostname to an address
    * \param [in] host_name host name
    * \param [in] host_addr_ver address type
    * \param [in] result_cb callback to call for result.
-   * \result true if queiry send, false otherwise and result_cb will call with error
+   * \result true if queiry send, false otherwise (result_cb will call with error)
    */
   bool run(std::string const &host_name, proto::ip::address::version host_addr_ver, result_cbt &&result_cb);
 
@@ -81,8 +84,8 @@ public:
    */
   void set_config(config const &conf);
 
-  /*! \brief check if query is in idle state
-   * \result true if in idle, false otherwise
+  /*! \brief check if query is in an idle state
+   * \result true if in an idle, false otherwise
    */
   bool is_idle() const noexcept { return _state == state::e_idle; }
 
@@ -113,7 +116,7 @@ private:
    */
   void done(int status, hostent *hostent);
 
-  /*! \brief restart/start timer with timeour from library
+  /*! \brief restart/start timer with timeout from ares
    */
   void restart_timer();
 
@@ -133,11 +136,11 @@ private:
   ev::timer_t _timer;                                                              ///< timer
   proto::ip::address::version _host_addr_ver{proto::ip::address::version::e_none}; ///< host address type
   ares_channel _ares_channel{nullptr};                                             ///< ares channel
-  std::string _host_name;              ///< host name ( for debuging probably )
-  result_cbt _result_cb;               ///< result callback function
-  state _state{state::e_idle};         ///< current state
-  config _config;                      ///< current configuration
-  std::vector<query *> &_query_done_q; ///< query done queue
+  std::string _host_name;                                                          ///< host name
+  result_cbt _result_cb;                                                           ///< result callback function
+  state _state{state::e_idle};                                                     ///< current state
+  config _config;                                                                  ///< current configuration
+  std::vector<query *> &_query_done_q;                                             ///< query done queue
 };
 
 } // namespace bro::net::dns

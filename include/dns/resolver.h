@@ -15,9 +15,9 @@ public:
   /*!\brief resover configuration
  */
   struct config {
-    std::optional<query::config> _query_conf;  ///< configuration for queries
-    std::optional<size_t> _max_active_queries; ///< maximux active queries
-    bool _free_query_after_use = false;        ///< free querie after query finished
+    std::optional<query::config> _query_conf; ///< configuration for queries
+    std::optional<size_t> _max_active_queries; ///< maximux active queries ( if limit exceeded will not proceed new query )
+    std::optional<std::chrono::milliseconds> _free_query_after_use; ///< free querie after query finished
   };
 
   /*!\brief default ctor

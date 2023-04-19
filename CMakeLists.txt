@@ -4,11 +4,13 @@ project(dns_resolver VERSION 0.9.1 DESCRIPTION "network library")
 set(H_FILES
     include/dns/resolver.h
     include/dns/query.h
+    include/dns/client.h
 )
 
 set(CPP_FILES
     source/dns/resolver.cpp
     source/dns/query.cpp
+    source/dns/client.cpp
 )
 
 include("${PROJECT_SOURCE_DIR}/third_party/libev_wrapper.cmake")
