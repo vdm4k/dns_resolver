@@ -9,7 +9,10 @@ constexpr std::chrono::milliseconds timeval_to_ms(timeval ts) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(duration);
 }
 
-query::query(ev::io_t &&read_ev, ev::io_t &&write_ev, ev::timer_t &&timer, std::vector<query *> &resolv_done)
+query::query(bro::ev::io_t &&read_ev,
+             bro::ev::io_t &&write_ev,
+             bro::ev::timer_t &&timer,
+             std::vector<query *> &resolv_done)
   : _read_ev(std::move(read_ev))
   , _write_ev(std::move(write_ev))
   , _timer(std::move(timer))

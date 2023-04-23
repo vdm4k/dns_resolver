@@ -47,7 +47,7 @@ public:
    * \param [in] timer timer-event
    * \param [in] resolv_done queue to set than resolve done
  */
-  query(ev::io_t &&read_ev, ev::io_t &&write_ev, ev::timer_t &&timer, std::vector<query *> &resolv_done);
+  query(bro::ev::io_t &&read_ev, bro::ev::io_t &&write_ev, bro::ev::timer_t &&timer, std::vector<query *> &resolv_done);
 
   /**
    * \brief disabled copy ctor
@@ -131,9 +131,9 @@ private:
    */
   void stop_io();
 
-  ev::io_t _read_ev;                                                               ///< read event
-  ev::io_t _write_ev;                                                              ///< write event
-  ev::timer_t _timer;                                                              ///< timer
+  bro::ev::io_t _read_ev;                                                          ///< read event
+  bro::ev::io_t _write_ev;                                                         ///< write event
+  bro::ev::timer_t _timer;                                                         ///< timer
   proto::ip::address::version _host_addr_ver{proto::ip::address::version::e_none}; ///< host address type
   ares_channel _ares_channel{nullptr};                                             ///< ares channel
   std::string _host_name;                                                          ///< host name

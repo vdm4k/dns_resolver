@@ -46,11 +46,11 @@ private:
  */
   void free_resources_per_query();
 
-  ev::factory _factory;                         ///< event generator
+  bro::ev::factory _factory;                    ///< event generator
   config _config;                               ///< current config
   std::vector<std::unique_ptr<query>> _queries; ///< queries pool
   std::vector<query *> _query_done_q;           ///< query done queue ( need this because we can't delete
-  ev::timer_t _free_query;                      ///< timer to free finished query ( if option set )
+  bro::ev::timer_t _free_query;                 ///< timer to free finished query ( if option set )
 };
 
 } // namespace bro::net::dns
