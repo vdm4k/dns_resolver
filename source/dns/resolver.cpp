@@ -2,10 +2,11 @@
 
 namespace bro::net::dns {
 
-resolver::resolver(config const &conf)
-  : _config(conf) {
+resolver::resolver(config const &conf, std::shared_ptr<ev::factory> factory)
+  : _factory(factory == nullptr ? std::make_shared<ev::factory>() : factory)
+  , _config(conf) {
   if (_config._free_query_after_use) {
-    _free_query = _factory.generate_timer();
+    _free_query = _factory->generate_timer();
     _free_query->start(std::chrono::seconds(1), [&]() {
       free_resources_per_query();
       _queries.erase(std::remove_if(_queries.begin(), _queries.end(), [](auto const &q) { return q->is_idle(); }),
@@ -29,9 +30,9 @@ bool resolver::resolve(std::string const &host_name, proto::ip::address::version
   }
 
   //generate new query
-  auto q = std::make_unique<query>(_factory.generate_io(ev::io::type::e_read),
-                                   _factory.generate_io(ev::io::type::e_write),
-                                   _factory.generate_timer(),
+  auto q = std::make_unique<query>(_factory->generate_io(ev::io::type::e_read),
+                                   _factory->generate_io(ev::io::type::e_write),
+                                   _factory->generate_timer(),
                                    _query_done_q);
   if (_config._query_conf)
     q->set_config(*_config._query_conf);
@@ -50,7 +51,7 @@ void resolver::free_resources_per_query() {
 }
 
 void resolver::proceed() {
-  _factory.proceed();
+  _factory->proceed();
   free_resources_per_query();
 }
 

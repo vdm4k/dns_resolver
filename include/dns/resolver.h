@@ -20,14 +20,10 @@ public:
     std::optional<std::chrono::milliseconds> _free_query_after_use; ///< free querie after query finished
   };
 
-  /*!\brief default ctor
- */
-  resolver() = default;
-
   /*!\brief ctor with config
    * \param [in] conf configuration
  */
-  resolver(config const &conf);
+  resolver(config const &conf, std::shared_ptr<bro::ev::factory> factory = nullptr);
 
   /*! \brief resolve hostname to address
    * \param [in] host_name host name
@@ -46,7 +42,7 @@ private:
  */
   void free_resources_per_query();
 
-  bro::ev::factory _factory;                    ///< event generator
+  std::shared_ptr<bro::ev::factory> _factory;   ///< event generator
   config _config;                               ///< current config
   std::vector<std::unique_ptr<query>> _queries; ///< queries pool
   std::vector<query *> _query_done_q;           ///< query done queue ( need this because we can't delete

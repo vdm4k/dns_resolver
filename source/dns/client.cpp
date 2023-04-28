@@ -4,6 +4,7 @@ namespace bro::net::dns {
 
 client::client(client::config const &conf)
   : _config(conf)
+  , _resolver(_config._resolver_conf)
   , _run(true) {
   _thread = std::thread(&client::run, this);
 }

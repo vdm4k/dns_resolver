@@ -2,7 +2,7 @@
 #include <iostream>
 
 int main() {
-  bro::net::dns::resolver dns;
+  bro::net::dns::resolver dns({});
   std::string fq = "google.com";
   std::string sq = "blahbalh.com";
   size_t res = 0;
