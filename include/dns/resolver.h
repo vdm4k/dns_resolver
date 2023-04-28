@@ -33,7 +33,7 @@ public:
    */
   bool resolve(std::string const &host_name, proto::ip::address::version host_addr_ver, result_cbt &&result_cb);
 
-  /*! \brief main fanction to process queries and callback ( call periodicaly )
+  /*! \brief main fanction to process queries and callback ( call periodicaly if don't use external factory)
  */
   void proceed();
 
@@ -47,6 +47,7 @@ private:
   std::vector<std::unique_ptr<query>> _queries; ///< queries pool
   std::vector<query *> _query_done_q;           ///< query done queue ( need this because we can't delete
   bro::ev::timer_t _free_query;                 ///< timer to free finished query ( if option set )
+  bro::ev::timer_t _free_resources;             ///< using timer to free not using resources ( in c-ares )
 };
 
 } // namespace bro::net::dns

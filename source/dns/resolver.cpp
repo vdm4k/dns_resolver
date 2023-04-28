@@ -13,6 +13,9 @@ resolver::resolver(config const &conf, std::shared_ptr<ev::factory> factory)
                      _queries.end());
     });
   }
+
+  _free_resources = _factory->generate_timer();
+  _free_resources->start(std::chrono::seconds(1), [&]() { free_resources_per_query(); });
 }
 
 bool resolver::resolve(std::string const &host_name, proto::ip::address::version host_addr_ver, result_cbt &&result_cb) {
@@ -52,7 +55,6 @@ void resolver::free_resources_per_query() {
 
 void resolver::proceed() {
   _factory->proceed();
-  free_resources_per_query();
 }
 
 } // namespace bro::net::dns
