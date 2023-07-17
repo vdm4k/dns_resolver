@@ -1,6 +1,6 @@
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
-find_package(c-ares 1.18)
+find_package(c-ares 1.18 QUIET) 
 
 if (c-ares_FOUND)
     return()
